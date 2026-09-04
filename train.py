@@ -13,6 +13,8 @@ from model import AudioCNN
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
+
+
 app = modal.App("audio-cnn")
 
 image = (modal.Image.debian_slim() #creating modal image
@@ -92,7 +94,7 @@ def train():
 
     train_transform = nn.Sequential(
         T.MelSpectrogram(
-            sample_rate=22050, 
+            sample_rate=44100, 
             n_fft=1024,
             hop_length=512,
             n_mels=128,
@@ -106,7 +108,7 @@ def train():
 
     val_transform = nn.Sequential(
             T.MelSpectrogram(
-                sample_rate=22050, 
+                sample_rate=44100, 
                 n_fft=1024,
                 hop_length=512,
                 n_mels=128,
@@ -144,7 +146,7 @@ def train():
     best_accuracy = 0.0
 
     print("Starting training...")
-    for epoch in range(num_epochs)
+    for epoch in range(num_epochs):
         model.train()
         epoch_loss = 0.0
 
