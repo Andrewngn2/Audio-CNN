@@ -103,10 +103,38 @@ Concepts
       with 64 kernels can find 64 different types of simple edges and colors. 
       Depth would refer to how many conv layers are after each other. Each layer will combine features from last layer to create something more complex. EX:  conv layer 1: finds edges --> conv layer 2: finds combinations of edges
       --> conv layer 3: finds parts of objects like a face. 
-      You need to have an appropriate amount of out channels in a preceding convolutional layer so the next layer has data to work with. So the first layer would need to find enough edges so the second layer can use all feature maps to 
-      identify combinations of edges.
+      You need to have an appropriate amount of out channels in a preceding convolutional layer so the next layer has data to work with. So the first layer would need to find enough edges so the second layer can use all feature         maps to identify combinations of edges. CNNs need to be wide and deep.
 
-      Pooling, activation functions, and Batch normalization 
+  Pooling, activation functions, and Batch normalization 
+    Convolutional layer --> activation function --> pooling
+      ReLU activvation function
+      -feature maps are passed through an activation funciton. ReLu is just one of them.
+
+      ReLu only allows positive values to pass through. This adds non linearity which is required for the model to learn more than linear mappings which are simple and limited patterns. adding non-linearity lets the network              combine many simple pieces into very complex functions.
+
+      Pooling
+      -the purpose of pooling is to shrink the feature maps. Conv layers can create multiple feature maps which is alot of data Then we have to introduce more neurons/features into subsequent layers.
+        More neurons with same amount of data = prone to overfitting
+        Pooling makes the network faster by summarizing the most information ina  region
+
+        Max pooling is one option:
+        Define  window size (like a kernel)
+        Keep the single largest value and discard the rest
+
+        or Average pooling
+        same thing but takes average
+
+    Sequence of Convolutional layers:
+    -the number of feature maps increase after each convoutional layer, but he size of hte feature map decreases.
+    conv layer--> relu--> maxpool 
+
+    Batch Normalization
+    -takes ouput from one layer, and resets it to a predictable range for subsequent
+        
+        
+        
+
+      
       
 
       
