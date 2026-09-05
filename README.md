@@ -128,9 +128,125 @@ Concepts
     -the number of feature maps increase after each convoutional layer, but he size of hte feature map decreases.
     conv layer--> relu--> maxpool 
 
-    Batch Normalization
+    Batch Normalization - helps training speed and stability 
     -takes ouput from one layer, and resets it to a predictable range for subsequent
-        
+    the problem is as layer one adjusts its weights and biases, its output also changes which in turn affects the second layer. The 2nd layer could be getting used to the original output of layer 1 but then now has to adjust
+    to the new output of layer 1. Layer 2 would have to adapt to a moving target.
+    Batch normalization decouples adjacent layers and makes sure the first layer's output is stable and predictable enough for 2 to adjust to.
+    Batch norm would follow pooling
+
+    In training we train all the convolutional layers, linear layers, and batch normalization layers.
+    In CNNs we train the numbers inside the kernel through back propagation. if there are 64 kernels it learns all 64 sets. Each kernel also posses a bias  added to every number in its feature map. So in 64 kernels it would learn 64 biases.
+
+    For linear layers each weights and biases are trained per neurons
+
+  CNN hyper Parameters
+
+  -kernel size
+    different sizes for different tasks. Large kernels capture broad simple patterns and helps the network get a quick understanding of the input(computationally expensive because of more parameters to train) 
+    small kernels capture fine-grained local details. Using a bunch of small kernels helps the network learn better and adds more activation steps in between which makes it easier to learn complex patterns from the same image area.
+    you could have a larger kernel size for the first conv layer and then smaller subsequent kernels in subsequent layers
+  -stride
+    how many pixels the kernel skips over when scanning over an input.
+    Stride balances detail capture and computational efficiency
+    smaller strides capture more details and makes a bigger output but takes more work. Larger stride loses details and shrinks output but works faster.
+    irregular spacing means the kernel doesn't process the the entire input grid.
+    To determine allowed strides: ensure the kernel can slide across the input without leaving uneven gaps. the output size must be a whole number. calculate (input size-kernel size + 2* padding)/ stride +1 and the result should 
+    be an integer.
+  -padding
+    without padding, the output shrinks with each layer, potentially losing edge information. padding helps maintain or adjust this size.\
+
+  {-,-,-,-,-,-}  Ex: padding of one
+  {-}[_,_,_]{-}
+  {-}[_,_,_]{-}
+  {-}[_,_,_]{-}
+  {-,-,-,-,-,-}
+
+  Padding pixels are typically filled with zeros and helps preserve edge pixels as they might be underrepresented.
+  
+
+Audio in CNNs
+
+  In order to represent audio in computers we have to represent it as a waveform.
+  Sample rate is how many measurements are made by the microphone per second in Hz.
+  Wav. files store this.
+  
+  Regular waveforms have tone encoded into the signal so the amplitude is the sum of all frequencies at the given time. 
+  
+  We need to convert this to a Spectrogram. Uses Fourier transform to extract frequencies and their strengths so we can see time, frequency, and frequency strength.
+  We then need to change this to a Mel Spectrogram
+  -spectrograms can be changed to match how humans perceive audio. 
+  Human ears can much more easily hear changes in low frequencies(100-200hz) than in high frequencies(10.000-10.100 hz). The linear scale of a regular spectrogram doesn't fit how humans work.
+  A Mel spectrogram is the same thing except the frequency is  based off the Mel scale where bands of energy at the bottom look taller and more spread out white the top is more compressed because the scale favors how  human
+  would recognize change in lower frequencies.
+
+
+Model Architecture
+
+
+  We will be using the ESC-50 Dataset
+    which has 2000 audio files each labeled out of 50 classes
+
+  .wav file --> Mel  Spectrogram --> NN --> prediction
+
+
+  ResNet: 
+    it first contains a 7x7 convolutional Layer followed by many convolutional layers separated into blocks of 2 called a residual block with increasing out channels and eventually is pooled and passed into a linear layer
+    The advantage of using ResNet architecture are shortcuts.
+    In deep networks gradients can get smaller and smaller so earlier layers stop learning. During back propagation the correction signal from the loss provided at the end of the entire pass it slowly passed to the previous layer
+    but loses strength the further back the layers are. This is the vanishing Gradient problem
+    Shortcuts work by feeding in the original input of the first convolutional layer of the residual block along side the output of the second convolutional layer when giving an input to the next residual block.
+    Final_output = f(x) +x => f(x) = final_output -x 
+    This means that what the layer is actually producing is only the final-output - the input so what the layer actually has to learn is way simpler. Without a shortcut a normal layer has to learn the entire final_output from scratch. 
+    With a shortcut the addition operator acts as a gradient distributor. It copies error signal and sends it down both paths simultaneously. This means that the error signal can travel through skip connections without losing strength while it also travels down the main layer pathway. A strong signal is then able to reach the earlier layers allowing for effective training of those layers.
+
+  Architeture mapped out in Pytorch
+  
+  Residual block
+  Conv2d(kernel 3, stride 1/2) --> (batchNorm2d) --> ReLU --> Conv2d(kernel 3, stride 2) --> batchNorm2d --> add shortcut --> ReLu  
+
+
+  Final Architecture
+  
+    This first extracts broad features from the Mel spectrogram
+      Conv2d(kernel 7, stride 2, padding 3) with 1 input channel and output 64 featuremaps --> batchnorm2d --> ReLU --> MaxPool2d(kernel 3, stride 2, padding, 1)
+       (B,1,128,256)                                                                                                                             The dimensions would be reduced
+        B is batch size, 1 is the channel (1 because its greyscale), height(frequency),  256(time))                                              (B,64,32,64)
+  
+    Then this is passses through conv1
+      3x residual block (B,64,32,64) --> purpose is to deepen the network to learn complex features without chaning dimensions
+    then Conv2
+      4x Residual Block (first in:64 from conv1) then subsequent is in:128 and out:128 feature maps --> reduces spatial dimensions while increasing number of feature channels to capture more intricate patterns
+    then Conv3
+      6x residual block with first in 128 input then subsequent (256 in, 256 out)
+    then Conv4 
+      3x residual block with first in 256 then subsequent(512 in, 512 out)
+
+    then it is passed into adaptiveAvgPool2d --> takes the 4*8 spatial grid of each of the 512 feature maps and averge it down to a single 1x1 value that will summarize the spatial information of each channel Tensor is still the same dimension as (B, 512,1,1)
+    then it is falttened (B,512)
+    then it is passed into the dropout where 1/2 of the channels are dropped which prevents overfitting during training
+    Then passed 512 inputs into a linear layer where it classifies out of 50 classes.
+    
+
+    
+  
+  
+  
+
+  
+  
+  
+
+    
+    
+    
+    
+
+
+  
+    
+    
+         
         
         
 
