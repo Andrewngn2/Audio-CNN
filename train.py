@@ -67,30 +67,30 @@ class ESC50Dataset(Dataset):  #inherits from dataset class from pytorch.
         else: 
             spectrogram = waveform
         return spectrogram, row['label'] #returns the spectrogram and looks in pandas series to look for label which is an index and returns that too
+    #data mixing in order to force model to not be overconfident and to extract sounds closely from mixed data
+def mixup_data(x, y): #x is features & y is labels
+    lam = np.random.beta(0.2,0.2) #favors blending weight close to 0 or 1
 
-def mixup_data(x, y):
-    lam = np.random.beta(0.2,0.2)
-
-    batch_size = x.size(0)
-    index = torch.randperm(batch_size).to(x.device)
-
+    batch_size = x.size(0) #we can see batch size in first dimension of tensor
+    index = torch.randperm(batch_size).to(x.device) #move it to gpu with the rest of our data
+        #shuffles batch of audio clips
     # (0.7 * audio1 + 0.3* audio2)
-    mixed_x = lam * x + (1 - lam) * x[index, :]
+    mixed_x = lam * x + (1 - lam) * x[index, :] #this targets only batch dimension so data to that batch gets mixed entirely
     y_a, y_b = y, y[index]
     return mixed_x, y_a, y_b, lam
 
 def mixup_criterion(criterion, pred, y_a,y_b, lam):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
-
+    #loss calculation for the synthetic data
 
 
  # defines image above, references which gpu to use,  attaches volumes created above, timeout is how long function can run
 @app.function(image=image, gpu="A10", volumes={"/data": volume, "/models": model_volume},timeout=60*60*3) 
 def train():
-    from datetime import datetime
+    from datetime import datetime #import datetime class
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = f"/models/tensorboard_logs/run_{timestamp}"
-    writer = SummaryWriter(log_dir)
+    log_dir = f"/models/tensorboard_logs/run_{timestamp}" #save tensor board file as timestamp
+    writer = SummaryWriter(log_dir) #tensorboard summary writer
     esc50_dir = Path("/opt/esc50-data") #where our downloaded dataset is
 
     train_transform = nn.Sequential( #torchaudio.MelSpectrogram transforms file to mel spectrogram configurations is a random one online
@@ -152,49 +152,49 @@ def train():
     for epoch in range(num_epochs):
         model.train() #set model to training mode so dropout works and so does batch normalizaiton
         epoch_loss = 0.0
-
-        progress_bar = tqdm(train_dataloader, desc= f"Epoch{epoch+1}/{num_epochs}")
-        for data, target in progress_bar:
+                        #tqdm is a progress bar library
+        progress_bar = tqdm(train_dataloader, desc= f"Epoch{epoch+1}/{num_epochs}") #wrap iterable in tqdm
+        for data, target in progress_bar: #loops across the dataloader and moves the input and label on to the gpu
             data, target = data.to(device), target.to(device)
-
-            if np.random.random() > 0.7:
+                #30% of cases apply the synthetic data
+            if np.random.random() > 0.7: 
                 data, target_a, target_b, lam = mixup_data(data,target)
-                output = model(data)
+                output = model(data) #feeds the data into model and calculates loss
                 loss = mixup_criterion(criterion, output, target_a, target_b, lam)
-            else: 
+            else: #this is how you call forward pass
                 output = model(data)
                 loss = criterion(output,target)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
+            optimizer.zero_grad() #reset gradients from last run
+            loss.backward() #launches back propagation process
+            optimizer.step() #calculates and updates model parameters
+            scheduler.step() #advances scheduler changing lr
 
-            epoch_loss += loss.item()
+            epoch_loss += loss.item() #calculates total loss for epoch
             progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
-
+       
         avg_epoch_loss = epoch_loss / len(train_dataloader)
         writer.add_scalar("Loss/train", avg_epoch_loss, epoch)
-        writer.add_scalar("Learning_rate", optimizer.param_groups[0]['lr'], epoch)
+        writer.add_scalar("Learning_rate", optimizer.param_groups[0]['lr'], epoch) #LOOKS F for learning rate  hyperparameter
 
         #validation after each epoch
-        model.eval()
+        model.eval() #validation mode
 
         correct =0
         total = 0
         val_loss= 0
 
-        with torch.no_grad():
+        with torch.no_grad(): #doesnt touch weights or biases
             for data, target in val_dataloader:
                 data, target = data.to(device), target.to(device)
                 output = model(data)
                 loss = criterion(output,target)
                 val_loss += loss.item()
-
+                    #throw away variable , stores indicies of the maximumm value=  finds maximum value along dimension 1
                 _, predicted = torch.max(output.data, 1)
-                total += target.size(0)
+                total += target.size(0) #adds batch to the total amount of samples tested
                 correct += (predicted == target).sum().item()
-
+                #gets index tensor and compares .sum counts how many matches 
         accuracy = 100 * correct / total
         avg_val_loss = val_loss / len(val_dataloader)
 
@@ -212,7 +212,7 @@ def train():
                         "accuracy": accuracy,
                          "epoch": epoch,
                          "classes": train_dataset.classes}
-                         , "/models/best_model.pth")
+                         , "/models/best_model.pth") #saves training checkpoint to the modal volume and metadata in a dictionary
             print(f"New best model saved: {accuracy:.2f}%")
 
     print(f"Training completed. Best accuracy: {best_accuracy:.2f}%")        
